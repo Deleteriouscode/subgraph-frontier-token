@@ -1,57 +1,91 @@
-import { BigInt } from "@graphprotocol/graph-ts"
-import { Contract, Approval, Transfer } from "../generated/Contract/Contract"
-import { ExampleEntity } from "../generated/schema"
+import { BigDecimal, BigInt, log } from "@graphprotocol/graph-ts";
+import { Frontier, Transfer } from "../generated/Frontier/Frontier";
+import {
+	Token,
+	TokenSupply,
+	_LastTokenSupply,
+	Transfer as TransferEntity,
+} from "../generated/schema";
+import { convertToDecimal, toDecimalExponent } from "./utils";
 
-export function handleApproval(event: Approval): void {
-  // Entities can be loaded from the store using a string ID; this ID
-  // needs to be unique across all entities of the same type
-  let entity = ExampleEntity.load(event.transaction.from.toHex())
-
-  // Entities only exist after they have been saved to the store;
-  // `null` checks allow to create entities on demand
-  if (entity == null) {
-    entity = new ExampleEntity(event.transaction.from.toHex())
-
-    // Entity fields can be set using simple assignments
-    entity.count = BigInt.fromI32(0)
-  }
-
-  // BigInt and BigDecimal math are supported
-  entity.count = entity.count + BigInt.fromI32(1)
-
-  // Entity fields can be set based on event parameters
-  entity.owner = event.params.owner
-  entity.spender = event.params.spender
-
-  // Entities can be written to the store with `.save()`
-  entity.save()
-
-  // Note: If a handler doesn't require existing field values, it is faster
-  // _not_ to load the entity from the store. Instead, create it fresh with
-  // `new Entity(...)`, set the fields that should be updated and save the
-  // entity back to the store. Fields that were not set or unset remain
-  // unchanged, allowing for partial updates to be applied.
-
-  // It is also possible to access smart contracts from mappings. For
-  // example, the contract that has emitted the event can be connected to
-  // with:
-  //
-  // let contract = Contract.bind(event.address)
-  //
-  // The following functions can then be called on this contract to access
-  // state variables and other data:
-  //
-  // - contract.allowance(...)
-  // - contract.approve(...)
-  // - contract.balanceOf(...)
-  // - contract.decimals(...)
-  // - contract.decreaseAllowance(...)
-  // - contract.increaseAllowance(...)
-  // - contract.name(...)
-  // - contract.symbol(...)
-  // - contract.totalSupply(...)
-  // - contract.transfer(...)
-  // - contract.transferFrom(...)
+function saveTokenSupply(
+	tokenSupplyId: string,
+	totalSupplyVal: BigDecimal,
+	event: Transfer,
+	token: Token | null,
+	prevTokenSupply: _LastTokenSupply | null
+): void {
+	let tokenSupply = new TokenSupply(tokenSupplyId);
+	tokenSupply.totalSupply = totalSupplyVal;
+	tokenSupply.timestamp = event.block.timestamp;
+	tokenSupply.token = token.id;
+	tokenSupply.save();
+	prevTokenSupply._totalSupply = totalSupplyVal;
+	prevTokenSupply.save();
 }
 
-export function handleTransfer(event: Transfer): void {}
+function initToken(
+	tokenId: string,
+	tokenSupplyId: string,
+	totalSupplyVal: BigDecimal,
+	event: Transfer,
+	token: Token | null
+): void {
+	token = new Token(tokenId);
+	token.save();
+	let prevTokenSupply = new _LastTokenSupply(tokenId);
+	saveTokenSupply(
+		tokenSupplyId,
+		totalSupplyVal,
+		event,
+		token,
+		prevTokenSupply
+	);
+}
+
+export function handleTransfer(event: Transfer): void {
+	// record totalSupply changes
+	// get current total supply
+	let contract = Frontier.bind(event.address);
+	let totalSupplyVal: BigDecimal;
+	let tokenId = event.address.toHex();
+	let totalSupply = contract.totalSupply();
+	let decimals = contract.decimals();
+	let decimalsTotal = toDecimalExponent(BigInt.fromI32(decimals));
+	let decimalTotalSupply = convertToDecimal(totalSupply, decimalsTotal);
+	totalSupplyVal = decimalTotalSupply;
+	let timestamp = event.block.timestamp;
+
+	// load token
+	let token = Token.load(tokenId);
+	let transferId = event.transaction.hash.toHex();
+
+	// in initial, instantiate a new token entity
+	if (!token) {
+		initToken(tokenId, transferId, totalSupplyVal, event, token);
+	} else {
+		// otherwise, update supply if changed from previous record
+		let prevTokenSupply = _LastTokenSupply.load(tokenId);
+
+		if (prevTokenSupply._totalSupply != totalSupplyVal) {
+			saveTokenSupply(
+				transferId,
+				totalSupplyVal,
+				event,
+				token,
+				prevTokenSupply
+			);
+		}
+	}
+
+	// record transaction
+	let transfer = new TransferEntity(transferId);
+	transfer.from = event.params.from.toHex();
+	transfer.to = event.params.to.toHex();
+	transfer.amount = convertToDecimal(event.params.value, decimalsTotal);
+	transfer.timestamp = timestamp;
+	// date methods are not supported in AS
+	// let date = new Date(timestamp.toI32());
+	// transfer.date = date.toLocaleDateString("en-US");
+	transfer.save();
+}
