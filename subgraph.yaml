@@ -1,26 +1,26 @@
 specVersion: 0.0.2
+description: Frontier token contract
+repository: https://github.com/serCJm/subgraph-frontier-token
 schema:
-  file: ./schema.graphql
+    file: ./schema.graphql
 dataSources:
-  - kind: ethereum/contract
-    name: Contract
-    network: mainnet
-    source:
-      address: "0xf8C3527CC04340b208C854E985240c02F7B7793f"
-      abi: Contract
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.4
-      language: wasm/assemblyscript
-      entities:
-        - Approval
-        - Transfer
-      abis:
-        - name: Contract
-          file: ./abis/Contract.json
-      eventHandlers:
-        - event: Approval(indexed address,indexed address,uint256)
-          handler: handleApproval
-        - event: Transfer(indexed address,indexed address,uint256)
-          handler: handleTransfer
-      file: ./src/mapping.ts
+    - kind: ethereum/contract
+      name: Frontier
+      network: mainnet
+      source:
+          address: "0xf8C3527CC04340b208C854E985240c02F7B7793f"
+          abi: Frontier
+          startBlock: 10841775
+      mapping:
+          kind: ethereum/events
+          apiVersion: 0.0.4
+          language: wasm/assemblyscript
+          entities:
+              - Token
+          abis:
+              - name: Frontier
+                file: ./abis/Frontier.json
+          eventHandlers:
+              - event: Transfer(indexed address,indexed address,uint256)
+                handler: handleTransfer
+          file: ./src/mapping.ts
