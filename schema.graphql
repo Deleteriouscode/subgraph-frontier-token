@@ -1,6 +1,24 @@
-type ExampleEntity @entity {
-  id: ID!
-  count: BigInt!
-  owner: Bytes! # address
-  spender: Bytes! # address
+type Token @entity {
+	id: ID!
+	tokenSupplies: [TokenSupply!]! @derivedFrom(field: "token")
+}
+
+type TokenSupply @entity {
+	id: ID!
+	totalSupply: BigDecimal!
+	timestamp: BigInt!
+	token: Token!
+}
+
+type Transfer @entity {
+	id: ID!
+	from: String!
+	to: String!
+	amount: BigDecimal!
+	timestamp: BigInt!
+}
+
+type _LastTokenSupply @entity {
+	id: ID!
+	_totalSupply: BigDecimal!
 }
