@@ -28,7 +28,7 @@ function initToken(
 	);
 }
 
-function initBalance(address: string) {
+function initBalance(address: string): void {
 	let balance = Balance.load(address);
 	if (balance === null && !address.startsWith("0x000000")) {
 		balance.id = address;
