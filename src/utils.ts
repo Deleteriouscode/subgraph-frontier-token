@@ -1,7 +1,7 @@
 import { BigInt, BigDecimal, log } from "@graphprotocol/graph-ts";
 
 export function toDecimalExponent(decimals: BigInt): BigInt {
-	log.debug("My value is: {}", [decimals.toString()]);
+	// log.debug("My value is: {}", [decimals.toString()]);
 	let decimalTotal = BigInt.fromI32(10);
 	for (
 		let i = BigInt.fromI32(1);
