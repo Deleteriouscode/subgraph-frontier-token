@@ -31,7 +31,7 @@ function initToken(
 function initBalance(address: string): void {
 	let balance = Balance.load(address);
 	if (balance === null && !address.startsWith("0x000000")) {
-		balance.id = address;
+		balance = new Balance(address);
 		balance.amount = BigDecimal.fromString("0");
 		balance.save();
 	}
@@ -85,12 +85,12 @@ function saveBalance(
 
 	if (fromBalance !== null) {
 		fromBalance.amount = fromBalance.amount.minus(transferAmount);
+		fromBalance.save();
 	}
 	if (toBalance !== null) {
 		toBalance.amount = toBalance.amount.plus(transferAmount);
+		toBalance.save();
 	}
-	fromBalance.save();
-	toBalance.save();
 }
 
 export function handleTransfer(event: Transfer): void {
